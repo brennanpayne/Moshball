@@ -1,0 +1,11 @@
+A game called MoshBall written by Brennan Payne and Nick Svoboda.  The program was written for our Introduction to Computer Graphics class during the Fall 2011 semester.
+
+Controls:
+-Move around using the mouse
+-Pressing 't' will change the skybox around the arena
+-Pressing 's' will change which shader is applied to the arena
+
+Known bugs:
+-Wall collision detection is not working
+-Mini map is the mirror image of what it should be
+-Sphere - Sphere collision detection is partially broken
