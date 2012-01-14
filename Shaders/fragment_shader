@@ -1,0 +1,71 @@
+varying vec3 normal, lightDir, eyeVec;
+varying vec4 tCoord;
+
+uniform int do_fog;
+uniform float fog_start;
+uniform float fog_end;
+uniform float cycle_s;
+uniform int do_glow;
+
+void main (void)
+{
+	float pi = 3.141592653589;
+	float min_value = 0.4; // The glow will be active when S and T (texture coordinates) are between these values.
+	float max_value = 0.6; // The glow will be active when S and T (texture coordinates) are between these values.
+	float line_mix_s = 1; // Used to smooth the transition into and out of the glow.
+	float line_mix_t = 1; // Used to smooth the transition into and out of the glow.
+	float frequency = 40; // The normal 0 to 1 will repeat this many times faster.
+	vec4 line_color = vec4(1,0,0,1);
+
+	vec4 final_color = ((gl_FrontLightModelProduct.sceneColor) + (gl_LightSource[0].ambient * gl_FrontMaterial.ambient));
+	vec4 final_line_color = line_color; // Note there is no reduction by ambient. This means the glow is Emissive.
+
+	vec3 N = normalize(normal);
+	vec3 L = normalize(lightDir);
+	
+	float lambertTerm = dot(N,L);
+	
+	if(lambertTerm > 0.0)
+	{
+		final_color += gl_LightSource[0].diffuse * gl_FrontMaterial.diffuse * lambertTerm;
+		// There is no point in adding a Lambertian term to the glow since it is emissive.
+		vec3 E = normalize(eyeVec);
+		vec3 R = reflect(-L, N);
+		float specular = pow( max(dot(R, E), 0.0), gl_FrontMaterial.shininess);
+		final_color += gl_LightSource[0].specular * gl_FrontMaterial.specular * specular;
+		// But I do want it's specular highlight to respond to the light color.	
+		final_line_color += gl_LightSource[0].specular * specular;
+	}
+
+	// Implementing fog the way the fixed function pipeline does.
+	float fog_factor = 1;
+	if (do_fog == 1 && gl_FogFragCoord >= fog_start)
+		fog_factor = (fog_end - gl_FogFragCoord) / (fog_end - fog_start);
+
+	// Cause the S and T values to cycle quickly - then use only the factional part (0 - 1).
+	tCoord = frac((tCoord + vec4(cycle_s, 0, 0, 0)) * frequency);
+	if (tCoord.s > min_value && tCoord.s < max_value)
+	{
+		line_mix_s = 2 * (tCoord.s - min_value) / (max_value - min_value);
+		if (line_mix_s > 1)
+			line_mix_s = line_mix_s - 1;
+		else
+			line_mix_s = 1 - line_mix_s;
+	}
+	line_mix_s *= line_mix_s;
+	if (tCoord.t > min_value && tCoord.t < max_value)
+	{
+		line_mix_t = 2 * (tCoord.t - min_value) / (max_value - min_value);
+		if (line_mix_t > 1)
+			line_mix_t = line_mix_t - 1;
+		else
+			line_mix_t = 1 - line_mix_t;
+	}
+	line_mix_t *= line_mix_t;
+	float line_mix = min(line_mix_s, line_mix_t);
+	if (do_glow == 1)
+		final_color = mix(final_line_color, final_color, line_mix);
+
+	// Final step is to mix in fog.
+	gl_FragColor = mix(gl_Fog.color, final_color, fog_factor);
+}
